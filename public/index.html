@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pixel Racer — Find your typing rhythm</title>
+<meta name="description" content="Practice your typing, race friends in real time, and find your rhythm with Pixel Racer."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/typing-text.js"></script>
+<script src="/ui-accessibility.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════════
+   RESET & ROOT
+═══════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --neon-cyan:   #00f5ff;
+  --neon-pink:   #ff2d78;
+  --neon-yellow: #ffe566;
+  --neon-green:  #39ff14;
+  --neon-purple: #b44fff;
+  --ui-bg:       rgba(10,14,40,0.92);
+  --ui-border:   rgba(0,245,255,0.25);
+  --ui-panel:    rgba(15,25,70,0.95);
+  --text-main:   #e8eeff;
+  --text-dim:    #8899cc;
+  --font-pixel:  'Press Start 2P', monospace;
+  --font-body:   'Nunito', sans-serif;
+}
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #080820;
+  font-family: var(--font-body);
+  color: var(--text-main);
+  user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCREEN MANAGER
+═══════════════════════════════════════════════════ */
+.screen { position: fixed; inset: 0; display: none; }
+.screen.active { display: flex; }
+
+/* ═══════════════════════════════════════════════════
+   PARALLAX BACKGROUND
+   Put these files in  public/assets/bg/ :
+     Sky.png        — full sky, never scrolls
+     Buildings.png  — city skyline, slow scroll
+     River.png      — mid layer, medium scroll
+     Sidewalk.png   — near ground layer, fast scroll
+   All layers tile horizontally via background-repeat:repeat-x
+═══════════════════════════════════════════════════ */
+.parallax-bg {
+  position: fixed; inset: 0; z-index: 0;
+  overflow: hidden;
+}
+.parallax-layer {
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%; height: 100%;
+  background-repeat: repeat-x;
+  background-position: bottom left;
+  background-size: auto 100%;
+  will-change: background-position;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ═══════════════════════════════════════════════════
+   GROUND PROPS — lamps, trees, benches
+   z-index 4+ so they render above background layers
+═══════════════════════════════════════════════════ */
+.ground-strip {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 160px; z-index: 4; pointer-events: none;
+}
+
+.lamp { position: absolute; bottom: 76px; z-index: 5; display: flex; flex-direction: column; align-items: center; }
+.lamp-post { width: 4px; height: 60px; background: #3a4a6e; }
+.lamp-arm  { width: 18px; height: 4px; background: #3a4a6e; margin-top: -4px; align-self: flex-start; }
+.lamp-bulb {
+  width: 10px; height: 10px; border-radius: 50%; background: #fff9d6;
+  box-shadow: 0 0 12px 6px rgba(255,240,150,0.6), 0 0 30px 10px rgba(255,220,80,0.3);
+  margin-top: -10px; margin-left: -4px;
+  animation: lampFlicker 3s ease-in-out infinite;
+}
+@keyframes lampFlicker { 0%,90%,100%{opacity:1} 92%{opacity:0.7} 95%{opacity:1} 97%{opacity:0.85} }
+.lamp-glow {
+  position: absolute; bottom: -10px; left: -25px;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255,240,150,0.18) 0%, transparent 70%);
+}
+
+.bench { position: absolute; bottom: 80px; z-index: 5; width: 36px; height: 20px; }
+.bench-seat { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: #7a5a3a; border-radius: 2px; box-shadow: 0 1px 0 #5a3a1a; }
+.bench-back { position: absolute; top: -8px; left: 3px; right: 3px; height: 5px; background: #7a5a3a; border-radius: 2px; box-shadow: 0 1px 0 #5a3a1a; }
+.bench-legs { position: absolute; bottom: -10px; left: 4px; right: 4px; display: flex; justify-content: space-between; }
+.bench-leg  { width: 4px; height: 10px; background: #5a3a1a; }
+
+.tree { position: absolute; bottom: 76px; z-index: 5; display: flex; flex-direction: column; align-items: center; }
+.tree-trunk { width: 8px; height: 24px; background: #5a3a1a; }
+.tree-top {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #2d7a3a, #1a4a22);
+  margin-top: -8px; position: relative; box-shadow: inset -4px -4px 8px rgba(0,0,0,0.4);
+}
+.tree-top::before { content:''; position:absolute; width:24px; height:24px; border-radius:50%; background:rgba(100,220,120,0.25); top:4px; left:5px; }
+.tree-lights {
+  position: absolute; inset: 0; border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 40%, rgba(255,220,80,0.5) 2px, transparent 2px),
+    radial-gradient(circle at 70% 30%, rgba(255,80,120,0.5) 2px, transparent 2px),
+    radial-gradient(circle at 55% 70%, rgba(80,200,255,0.5) 2px, transparent 2px),
+    radial-gradient(circle at 20% 65%, rgba(180,80,255,0.5) 2px, transparent 2px);
+  animation: lightPulse 2s ease-in-out infinite;
+}
+@keyframes lightPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 1 — LOBBY
+═══════════════════════════════════════════════════ */
+#screen-lobby { z-index:10; align-items:flex-start; justify-content:flex-start; padding:20px; pointer-events:none; }
+.lobby-panel {
+  pointer-events:all; background:var(--ui-panel); border:1px solid var(--ui-border);
+  border-radius:4px; padding:24px; width:340px; max-width:90vw;
+  backdrop-filter:blur(12px);
+  box-shadow:0 0 40px rgba(0,245,255,0.08),0 20px 60px rgba(0,0,0,0.5);
+  position:relative; overflow:hidden;
+}
+.lobby-panel::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);
+  z-index:0;
+}
+.lobby-panel > * { position:relative; z-index:1; }
+
+.game-eyebrow { font-family:var(--font-pixel); font-size:7px; color:var(--neon-cyan); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:10px; text-shadow:0 0 8px var(--neon-cyan); }
+.game-title   { font-family:var(--font-body); font-size:26px; font-weight:900; line-height:1.15; color:#fff; margin-bottom:6px; letter-spacing:-0.5px; }
+.game-sub     { font-size:12px; color:var(--text-dim); margin-bottom:22px; line-height:1.5; }
+.field-label  { font-size:10px; font-weight:700; color:var(--text-dim); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:5px; }
+
+.field-input {
+  width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(0,245,255,0.2);
+  border-radius:3px; padding:10px 12px; font-size:14px; font-family:var(--font-body);
+  font-weight:600; color:#fff; outline:none; transition:border-color 0.2s,box-shadow 0.2s; margin-bottom:14px;
+}
+.field-input:focus { border-color:var(--neon-cyan); box-shadow:0 0 0 3px rgba(0,245,255,0.1); }
+.field-input::placeholder { color:rgba(136,153,204,0.5); }
+
+.btn-primary {
+  width:100%; background:linear-gradient(135deg,#7b2fff,#4a00e0); border:none; border-radius:3px;
+  padding:12px; font-size:13px; font-family:var(--font-body); font-weight:800; color:#fff;
+  letter-spacing:0.05em; cursor:pointer; transition:all 0.15s; position:relative; overflow:hidden;
+}
+.btn-primary::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 100%); }
+.btn-primary:hover  { transform:translateY(-1px); box-shadow:0 4px 20px rgba(123,47,255,0.5); }
+.btn-primary:active { transform:translateY(0); }
+
+.divider { display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--text-dim); font-size:11px; font-weight:700; }
+.divider::before,.divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.08); }
+
+.join-row { display:flex; gap:8px; }
+.join-row .field-input { flex:1; margin-bottom:0; font-family:var(--font-pixel); font-size:10px; letter-spacing:0.15em; }
+.btn-join {
+  background:rgba(0,245,255,0.1); border:1px solid rgba(0,245,255,0.3); border-radius:3px;
+  padding:10px 16px; font-size:12px; font-family:var(--font-body); font-weight:800;
+  color:var(--neon-cyan); cursor:pointer; transition:all 0.15s; white-space:nowrap;
+}
+.btn-join:hover { background:rgba(0,245,255,0.2); box-shadow:0 0 12px rgba(0,245,255,0.2); }
+
+.error-msg { font-size:11px; color:#ff6b6b; font-weight:700; margin-top:8px; display:none; padding:6px 10px; background:rgba(255,107,107,0.1); border-radius:3px; border-left:3px solid #ff6b6b; }
+.error-msg.show { display:block; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 2 — WAITING ROOM
+═══════════════════════════════════════════════════ */
+#screen-waiting { z-index:10; align-items:flex-start; justify-content:flex-start; padding:20px; pointer-events:none; gap:14px; }
+.waiting-panel {
+  pointer-events:all; background:var(--ui-panel); border:1px solid var(--ui-border);
+  border-radius:4px; padding:24px; width:340px; max-width:90vw;
+  backdrop-filter:blur(12px); box-shadow:0 0 40px rgba(0,245,255,0.08),0 20px 60px rgba(0,0,0,0.5);
+  position:relative; overflow:hidden; align-self:flex-start;
+}
+.waiting-panel::before { content:''; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px); z-index:0; }
+.waiting-panel > * { position:relative; z-index:1; }
+
+/* ═══════════════════════════════════════════════════
+   SOUND / VOLUME CONTROL
+═══════════════════════════════════════════════════ */
+.volume-row {
+  display:flex; align-items:center; gap:8px; margin-top:10px;
+  background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+  border-radius:3px; padding:8px 12px;
+}
+.volume-icon { font-size:14px; cursor:pointer; flex-shrink:0; user-select:none; }
+.volume-slider {
+  flex:1; -webkit-appearance:none; appearance:none;
+  height:3px; border-radius:2px; outline:none; cursor:pointer;
+  background:linear-gradient(to right, var(--neon-cyan) 0%, var(--neon-cyan) var(--val,70%), rgba(255,255,255,0.15) var(--val,70%));
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance:none; width:12px; height:12px; border-radius:50%;
+  background:var(--neon-cyan); box-shadow:0 0 6px var(--neon-cyan); cursor:pointer;
+}
+.volume-slider::-moz-range-thumb {
+  width:12px; height:12px; border-radius:50%; border:none;
+  background:var(--neon-cyan); box-shadow:0 0 6px var(--neon-cyan); cursor:pointer;
+}
+.volume-label { font-family:var(--font-pixel); font-size:7px; color:var(--text-dim); width:24px; text-align:right; }
+.hud-mute {
+  background:var(--ui-bg); border:1px solid var(--ui-border); border-radius:20px;
+  padding:5px 10px; font-size:12px; cursor:pointer; pointer-events:all;
+  backdrop-filter:blur(8px); transition:border-color 0.15s; line-height:1;
+}
+.hud-mute:hover { border-color:rgba(255,255,255,0.3); }
+
+/* ═══════════════════════════════════════════════════
+   RACE HISTORY
+═══════════════════════════════════════════════════ */
+.race-history {
+  margin:12px 0; padding:12px 14px;
+  background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07);
+  border-radius:6px;
+}
+.race-history-title {
+  font-family:var(--font-pixel); font-size:7px; color:var(--text-dim);
+  letter-spacing:0.12em; text-transform:uppercase; margin-bottom:10px;
+}
+.race-history-bars { display:flex; align-items:flex-end; gap:6px; height:48px; }
+.race-history-bar-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
+.race-history-bar {
+  width:100%; border-radius:3px 3px 0 0;
+  background:linear-gradient(180deg, var(--neon-cyan), rgba(0,245,255,0.3));
+  transition:height 0.4s cubic-bezier(0.34,1.3,0.64,1);
+  min-height:3px; position:relative;
+}
+.race-history-bar.current {
+  background:linear-gradient(180deg, var(--neon-yellow), rgba(255,229,102,0.3));
+  box-shadow:0 0 8px rgba(255,229,102,0.4);
+}
+.race-history-bar-val {
+  font-family:var(--font-pixel); font-size:7px; color:var(--neon-cyan);
+  white-space:nowrap;
+}
+.race-history-bar.current + .race-history-bar-val,
+.race-history-bar-wrap:last-child .race-history-bar-val { color:var(--neon-yellow); }
+.race-history-bar-label { font-size:8px; color:var(--text-dim); }
+.race-history-avg {
+  font-size:10px; color:var(--text-dim); margin-top:8px; text-align:right;
+}
+.race-history-avg span { color:var(--neon-cyan); font-weight:800; }
+
+/* ═══════════════════════════════════════════════════
+   POWER-UPS
+═══════════════════════════════════════════════════ */
+/* Shop cards in waiting room */
+.powerup-shop { margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.07); }
+.powerup-shop-title { font-family:var(--font-pixel); font-size:8px; color:var(--neon-yellow); text-shadow:0 0 8px var(--neon-yellow); letter-spacing:0.15em; margin-bottom:10px; }
+.powerup-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.powerup-card {
+  background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1);
+  border-radius:6px; padding:10px; text-align:left; cursor:pointer;
+  transition:all 0.15s; position:relative; overflow:hidden;
+}
+.powerup-card:hover { border-color:rgba(255,255,255,0.25); transform:translateY(-1px); }
+.powerup-card.zap-card   { border-color:rgba(255,200,0,0.2); }
+.powerup-card.zap-card:hover   { border-color:rgba(255,200,0,0.5); box-shadow:0 0 14px rgba(255,200,0,0.15); }
+.powerup-card.shield-card { border-color:rgba(0,180,255,0.2); }
+.powerup-card.shield-card:hover { border-color:rgba(0,180,255,0.5); box-shadow:0 0 14px rgba(0,180,255,0.15); }
+.powerup-card:disabled { opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+.powerup-icon  { font-size:20px; display:block; margin-bottom:4px; }
+.powerup-name  { font-size:8px; font-family:var(--font-pixel); color:#fff; display:block; margin-bottom:3px; }
+.powerup-desc  { font-size:10px; color:var(--text-dim); display:block; margin-bottom:6px; line-height:1.4; }
+.powerup-key   { font-size:7px; font-family:var(--font-pixel); color:var(--neon-cyan); display:block; margin-bottom:4px; }
+.powerup-cost  { font-size:8px; font-family:var(--font-pixel); color:var(--neon-yellow); background:rgba(255,229,102,0.1); border-radius:3px; padding:1px 6px; display:inline-block; }
+.powerup-count { position:absolute; top:6px; right:8px; font-family:var(--font-pixel); font-size:9px; color:var(--neon-green); }
+
+/* HUD power-up slot */
+.hud-powerup {
+  display:flex; align-items:center; gap:6px;
+  background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.12);
+  border-radius:20px; padding:4px 12px;
+  font-family:var(--font-pixel); font-size:8px;
+  backdrop-filter:blur(8px); pointer-events:none;
+}
+.hud-pu-zap    { border-color:rgba(255,200,0,0.4); color:var(--neon-yellow); }
+.hud-pu-shield { border-color:rgba(0,180,255,0.4); color:#60c8ff; }
+.hud-pu-empty  { color:var(--text-dim); }
+.hud-pu-count  { font-size:10px; font-weight:900; }
+.hud-pu-key    { font-size:7px; color:var(--text-dim); }
+
+/* Freeze overlay on runner lane */
+.lane-frozen {
+  position:absolute; inset:0; pointer-events:none; z-index:20;
+  background:rgba(100,200,255,0.18);
+  border:2px solid rgba(100,200,255,0.6);
+  border-radius:4px;
+  animation:frozenPulse 0.4s ease-in-out infinite alternate;
+}
+@keyframes frozenPulse { from{opacity:0.7} to{opacity:1} }
+
+/* Shield overlay on runner lane */
+.lane-shield {
+  position:absolute; inset:0; pointer-events:none; z-index:20;
+  background:rgba(0,120,255,0.12);
+  border:2px solid rgba(0,180,255,0.7);
+  border-radius:4px;
+  animation:shieldPulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes shieldPulse { from{opacity:0.6} to{opacity:1} }
+
+/* Flash toast variants */
+.toast-zap    { color:var(--neon-yellow) !important; }
+.toast-shield { color:#60c8ff !important; }
+.toast-frozen { color:#f87171 !important; }
+
+/* Right-side customize panel */
+.customize-panel {
+  pointer-events:all; background:var(--ui-panel); border:1px solid var(--ui-border);
+  border-radius:4px; padding:20px; width:280px; max-width:90vw;
+  backdrop-filter:blur(12px); box-shadow:0 0 40px rgba(0,245,255,0.08),0 20px 60px rgba(0,0,0,0.5);
+  position:relative; overflow:hidden; overflow-y:auto; align-self:flex-start;
+}
+.customize-panel::before { content:''; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px); z-index:0; }
+.customize-panel > * { position:relative; z-index:1; }
+.customize-panel-title {
+  font-family:var(--font-pixel); font-size:8px; color:var(--neon-cyan);
+  text-shadow:0 0 8px var(--neon-cyan); letter-spacing:0.15em;
+  text-transform:uppercase; margin-bottom:14px;
+}
+
+.room-code-label   { font-size:10px; font-weight:700; color:var(--text-dim); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:4px; }
+.room-code-display { font-family:var(--font-pixel); font-size:18px; color:var(--neon-cyan); text-shadow:0 0 12px var(--neon-cyan); letter-spacing:0.3em; margin-bottom:6px; }
+.room-link { font-size:10px; color:var(--text-dim); word-break:break-all; margin-bottom:20px; cursor:pointer; transition:color 0.2s; }
+.room-link:hover { color:var(--neon-cyan); }
+
+.players-list { list-style:none; margin-bottom:18px; display:flex; flex-direction:column; gap:6px; }
+.player-item  { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); border-radius:3px; padding:8px 12px; font-size:13px; font-weight:700; transition:all 0.2s; }
+.player-item.ready { border-color:rgba(57,255,20,0.3); background:rgba(57,255,20,0.05); }
+.player-dot    { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.player-name   { flex:1; }
+.player-status { font-size:9px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
+.status-ready   { color:var(--neon-green); }
+.status-waiting { color:var(--text-dim); }
+
+.btn-ready { width:100%; background:linear-gradient(135deg,#00c853,#007a33); border:none; border-radius:3px; padding:12px; font-size:13px; font-family:var(--font-body); font-weight:800; color:#fff; letter-spacing:0.05em; cursor:pointer; transition:all 0.15s; }
+.btn-ready:hover    { transform:translateY(-1px); box-shadow:0 4px 20px rgba(0,200,83,0.4); }
+.btn-ready:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
+.waiting-hint { text-align:center; margin-top:10px; font-size:11px; color:var(--text-dim); }
+
+/* ── Customization panel (waiting room, all players) ─ */
+.customize-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.07); }
+.customize-label   { font-size: 9px; font-family: var(--font-pixel); color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+
+/* Coin balance bar */
+.coin-balance-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,229,102,0.08); border: 1px solid rgba(255,229,102,0.2);
+  border-radius: 6px; padding: 7px 12px; margin-bottom: 12px;
+}
+.coin-balance-label { font-size: 9px; font-family: var(--font-pixel); color: var(--text-dim); }
+.coin-balance-val   { font-size: 14px; font-family: var(--font-pixel); color: var(--neon-yellow); text-shadow: 0 0 8px rgba(255,229,102,0.5); }
+
+/* Background theme grid */
+.theme-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 14px; }
+.theme-btn {
+  aspect-ratio: 16/9; border-radius: 4px; border: 2px solid rgba(255,255,255,0.08);
+  cursor: pointer; overflow: hidden; position: relative; transition: all 0.15s;
+  padding: 0; background: #111;
+}
+.theme-btn img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; }
+.theme-btn:hover  { border-color: rgba(255,255,255,0.3); transform: scale(1.05); }
+.theme-btn.active { border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(0,245,255,0.4); }
+.theme-btn.locked:hover { transform: none; border-color: rgba(255,255,255,0.08); }
+.theme-btn .theme-label {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  font-size: 6px; font-family: var(--font-pixel); color: #fff;
+  background: rgba(0,0,0,0.7); padding: 2px 3px; text-align: center; letter-spacing: 0.04em;
+}
+
+/* Lock overlay */
+.lock-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+}
+.lock-icon  { font-size: 13px; line-height: 1; }
+.lock-price { font-size: 6px; font-family: var(--font-pixel); color: var(--neon-yellow); }
+.btn-unlock {
+  margin-top: 2px; background: var(--neon-yellow); color: #111;
+  border: none; border-radius: 2px; padding: 2px 5px;
+  font-size: 6px; font-family: var(--font-pixel); cursor: pointer; transition: all 0.1s;
+}
+.btn-unlock:hover    { background: #fff; }
+.btn-unlock:disabled { background: rgba(255,229,102,0.25); color: rgba(0,0,0,0.35); cursor: not-allowed; }
+
+/* Sprite picker */
+.sprite-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sprite-btn {
+  border-radius: 4px; border: 2px solid rgba(255,255,255,0.08);
+  cursor: pointer; background: rgba(0,0,0,0.3);
+  padding: 8px 4px 4px; text-align: center;
+  transition: all 0.15s; position: relative; overflow: hidden;
+}
+.sprite-btn:hover  { border-color: rgba(255,255,255,0.3); transform: scale(1.04); }
+.sprite-btn.active { border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(0,245,255,0.4); }
+.sprite-btn.locked:hover { transform: none; border-color: rgba(255,255,255,0.08); }
+.sprite-preview {
+  width: 32px; height: 32px; margin: 0 auto 4px;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+  background-repeat: no-repeat; background-size: auto 100%;
+  background-position: 0 0; display: block;
+}
+.sprite-preview.anim { animation: previewRun 0.6s steps(6) infinite; }
+@keyframes previewRun { from{background-position-x:0} to{background-position-x:-192px} }
+.sprite-btn-label { font-size: 7px; font-family: var(--font-pixel); color: var(--text-dim); letter-spacing: 0.05em; }
+.sprite-lock-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.category-section {
+  margin-bottom: 14px;
+}
+.category-label {
+  font-size: 9px; font-family: var(--font-pixel);
+  color: var(--text-dim); letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.cat-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  padding: 6px 4px;
+  font-size: 9px; font-family: var(--font-pixel);
+  color: var(--text-dim);
+  cursor: pointer; transition: all 0.15s;
+  text-align: center; letter-spacing: 0.05em;
+}
+.cat-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.cat-btn.active {
+  background: rgba(0,245,255,0.12);
+  border-color: rgba(0,245,255,0.4);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0,245,255,0.15);
+}
+/* AI toggle row */
+.ai-toggle-row {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(180,79,255,0.08);
+  border: 1px solid rgba(180,79,255,0.25);
+  border-radius: 4px; padding: 8px 10px;
+  cursor: pointer; transition: all 0.15s;
+  margin-bottom: 2px;
+}
+.ai-toggle-row:hover { background: rgba(180,79,255,0.15); }
+.ai-toggle-row.active {
+  background: rgba(180,79,255,0.18);
+  border-color: rgba(180,79,255,0.5);
+  box-shadow: 0 0 12px rgba(180,79,255,0.2);
+}
+.ai-icon { font-size: 14px; line-height: 1; }
+.ai-text { flex: 1; }
+.ai-text-title {
+  font-size: 9px; font-family: var(--font-pixel);
+  color: var(--neon-purple); letter-spacing: 0.05em;
+}
+.ai-text-sub { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+.ai-check {
+  width: 16px; height: 16px; border-radius: 3px;
+  border: 1px solid rgba(180,79,255,0.4);
+  background: rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; flex-shrink: 0;
+  transition: all 0.15s;
+}
+.ai-toggle-row.active .ai-check {
+  background: var(--neon-purple);
+  border-color: var(--neon-purple);
+}
+/* Guest view of category selection */
+.category-display {
+  font-size: 10px; color: var(--text-dim);
+  margin-bottom: 14px; text-align: center;
+}
+.category-display strong { color: var(--neon-cyan); }
+/* AI badge in prompt source */
+.ai-badge {
+  display: inline-block; font-size: 8px;
+  padding: 1px 6px; border-radius: 8px; margin-right: 6px;
+  background: rgba(180,79,255,0.15);
+  border: 1px solid rgba(180,79,255,0.35);
+  color: var(--neon-purple);
+  font-family: var(--font-pixel); letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* Difficulty badge */
+.diff-badge {
+  display: inline-block; font-size: 8px;
+  padding: 1px 6px; border-radius: 8px; margin-right: 6px;
+  font-family: var(--font-pixel); letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.diff-badge.easy   { background: rgba(57,255,20,0.12);  border: 1px solid rgba(57,255,20,0.3);  color: var(--neon-green); }
+.diff-badge.medium { background: rgba(255,229,102,0.12); border: 1px solid rgba(255,229,102,0.3); color: var(--neon-yellow); }
+.diff-badge.hard   { background: rgba(255,45,120,0.12);  border: 1px solid rgba(255,45,120,0.3);  color: var(--neon-pink); }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 3 — COUNTDOWN
+═══════════════════════════════════════════════════ */
+#screen-countdown { z-index:20; align-items:center; justify-content:center; flex-direction:column; gap:12px; pointer-events:none; }
+.countdown-number {
+  font-family:var(--font-pixel); font-size:clamp(60px,15vw,120px);
+  color:var(--neon-yellow); text-shadow:0 0 30px rgba(255,229,102,0.8),0 0 60px rgba(255,229,102,0.4);
+  animation:countPop 0.4s cubic-bezier(0.34,1.56,0.64,1); line-height:1;
+}
+@keyframes countPop { from{transform:scale(2);opacity:0} to{transform:scale(1);opacity:1} }
+.countdown-go  { color:var(--neon-green)!important; text-shadow:0 0 30px rgba(57,255,20,0.8),0 0 60px rgba(57,255,20,0.4)!important; }
+.countdown-sub { font-family:var(--font-pixel); font-size:9px; color:rgba(255,255,255,0.6); letter-spacing:0.2em; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 4 — RACE
+═══════════════════════════════════════════════════ */
+#screen-race {
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  padding-bottom: 220px;
+}
+
+/* Race track — fixed to screen, covers full width.
+   Sprites are positioned using bottom values calculated from
+   the screen edge so they land on the ground surface regardless
+   of how tall the container is. */
+#race-track {
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  height: 230px;     /* tall enough to contain sprites + name tags */
+  z-index: 6;
+  pointer-events: none;
+}
+
+/* Each lane is full-width, overlapping. All share the same
+   coordinate system anchored to bottom:0 of the screen. */
+.runner-lane {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 0;
+  height: 230px;
+}
+
+/* Sprite — bottom value places feet on the ground surface.
+   Ground surface across all themes sits ~160px from screen bottom.
+   Sprite is 48px tall, so feet at bottom:160px means
+   top of sprite at 208px from screen bottom.
+   Individual stagger is added inline per player in buildLanes. */
+.runner-avatar {
+  position: absolute;
+  bottom: 160px;
+  left: 10px;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background-repeat: no-repeat;
+  background-size: auto 100%;
+  background-position: 0 0;
+  z-index: 7;
+}
+
+/* Lane progress bar — thin line along the very bottom */
+.lane-bar {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px; border-radius: 2px;
+  opacity: 0.5;
+}
+
+/* Default sprite animation keyframe — matches SPRITE_H=64 in buildLanes.
+   The JS also injects named keyframes per sprite type. */
+@keyframes monsterRun {
+  from { background-position-x: 0px; }
+  to   { background-position-x: -384px; } /* 6 frames × 64px */
+}
+
+/* ── Floating glassmorphism typing card ─────────── */
+.race-ui {
+  pointer-events: all;
+  position: relative; z-index: 15;
+  background: rgba(8, 12, 40, 0.52);
+  border: 1px solid rgba(0,245,255,0.18);
+  border-radius: 12px;
+  padding: 18px 22px 20px;
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow:
+    0 0 0 1px rgba(0,245,255,0.06) inset,
+    0 8px 40px rgba(0,0,0,0.4),
+    0 0 60px rgba(0,245,255,0.03);
+  width: min(680px, 92vw);
+  overflow: hidden;
+}
+.race-ui::before {
+  content:''; position:absolute; inset:0; pointer-events:none; border-radius:12px;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);
+  z-index:0;
+}
+.race-ui > * { position:relative; z-index:1; }
+
+.race-ui-inner { display:grid; grid-template-columns:1fr auto; gap:14px; align-items:start; }
+
+.prompt-area {
+  background:rgba(0,0,0,0.25); border:1px solid rgba(0,245,255,0.1); border-radius:6px;
+  padding:11px 14px; font-size:16px; line-height:1.9; min-height:58px;
+  font-family:var(--font-body); font-weight:600; letter-spacing:0.01em;
+  margin-bottom:10px; word-break:break-word;
+  /* words wrap naturally, no character spans break layout */
+  white-space: pre-wrap;
+}
+/* Word states — each word is wrapped in a <span class="word"> */
+.word           { display:inline; white-space:pre; }
+.word.done      { color:var(--neon-green); }
+.word.current   { color:#fff; }
+.word.pending   { color:rgba(136,153,204,0.65); }
+/* The current word gets an underline cursor instead of char highlighting */
+.word.current   { border-bottom: 2px solid var(--neon-yellow); }
+/* Individual chars inside the current word during typing */
+.word.current .ch-correct { color:var(--neon-green); }
+.word.current .ch-wrong   { color:var(--neon-pink); text-decoration:underline; }
+.word.current .ch-pending { color:#fff; }
+
+/* Source attribution line under the prompt */
+.prompt-source {
+  font-size:10px; font-family:var(--font-pixel);
+  color:rgba(136,153,204,0.6); letter-spacing:0.06em;
+  margin-bottom:10px; padding-left:2px;
+}
+.prompt-source .cat-badge {
+  display:inline-block; font-size:8px;
+  padding:1px 6px; border-radius:8px; margin-right:6px;
+  background:rgba(0,245,255,0.1); border:1px solid rgba(0,245,255,0.2);
+  color:var(--neon-cyan); text-transform:uppercase; letter-spacing:0.1em;
+}
+
+.typing-input {
+  width:100%; background:rgba(255,255,255,0.06); border:1.5px solid rgba(0,245,255,0.2);
+  border-radius:6px; padding:10px 14px; font-size:15px; font-family:var(--font-body);
+  font-weight:600; color:#fff; outline:none; transition:border-color 0.2s,box-shadow 0.2s;
+  caret-color:var(--neon-cyan);
+}
+.typing-input:focus     { border-color:var(--neon-cyan); box-shadow:0 0 0 3px rgba(0,245,255,0.12); }
+.typing-input.has-error { border-color:var(--neon-pink);  box-shadow:0 0 0 3px rgba(255,45,120,0.15); }
+.typing-input:disabled  { opacity:0.35; cursor:not-allowed; }
+.race-actions { display:flex; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap; }
+.race-actions button { background:var(--ui-bg); border:1px solid var(--ui-border); color:var(--text-main); padding:8px 12px; border-radius:4px; cursor:pointer; }
+.race-actions button:disabled { opacity:0.5; cursor:default; }
+.race-actions button:focus-visible { outline:2px solid var(--neon-cyan); outline-offset:3px; }
+#race-remaining { font-size:12px; color:var(--neon-yellow); }
+#connection-overlay { position:fixed; inset:0; z-index:200; background:rgba(8,8,32,0.8); display:flex; align-items:center; justify-content:center; padding:20px; }
+#connection-overlay[hidden] { display:none; }
+.connection-card { width:420px; max-width:100%; padding:24px; border:1px solid var(--neon-cyan); border-radius:8px; background:var(--ui-bg); text-align:center; }
+.connection-card p { margin:12px 0; line-height:1.6; }
+.connection-card button { padding:10px 14px; margin:4px; cursor:pointer; }
+
+.stats-panel { display:flex; flex-direction:column; gap:6px; min-width:108px; }
+.stat-card   { background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.07); border-radius:6px; padding:6px 10px; text-align:center; }
+.stat-label  { font-size:7px; font-family:var(--font-pixel); color:var(--text-dim); letter-spacing:0.1em; margin-bottom:3px; }
+.stat-value  { font-family:var(--font-pixel); font-size:12px; line-height:1; }
+.time-val    { color:var(--neon-pink);   text-shadow:0 0 8px var(--neon-pink); }
+.coin-val    { color:var(--neon-yellow); text-shadow:0 0 8px var(--neon-yellow); }
+.place-val   { color:var(--neon-purple); text-shadow:0 0 8px var(--neon-purple); }
+
+.speed-arc-wrap { background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.07); border-radius:6px; padding:7px 8px; text-align:center; }
+.speed-arc-wrap svg  { display:block; margin:0 auto 2px; }
+.speed-arc-label { font-size:7px; font-family:var(--font-pixel); color:var(--text-dim); }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN 5 — RESULTS
+═══════════════════════════════════════════════════ */
+#screen-results {
+  z-index: 20;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+.results-panel {
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 26px 28px 28px;
+  width: 580px; max-width: 96vw;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 60px rgba(0,245,255,0.08), 0 30px 80px rgba(0,0,0,0.6);
+  position: relative; overflow: hidden;
+  animation: panelIn 0.4s cubic-bezier(0.34,1.3,0.64,1);
+}
+@keyframes panelIn { from{transform:scale(0.85) translateY(24px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+.results-panel::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);
+  z-index:0;
+}
+.results-panel > * { position:relative; z-index:1; }
+
+.results-title {
+  font-family: var(--font-pixel); font-size:10px; letter-spacing:0.2em;
+  color: var(--neon-yellow); text-shadow:0 0 10px var(--neon-yellow);
+  text-align: center; margin-bottom: 18px;
+}
+
+/* Leaderboard rows */
+.result-row    { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:4px; padding:9px 12px; margin-bottom:6px; }
+.result-row.winner { border-color:rgba(255,229,102,0.4); background:rgba(255,229,102,0.06); box-shadow:0 0 16px rgba(255,229,102,0.08); }
+.result-place  { font-family:var(--font-pixel); font-size:11px; width:24px; text-align:center; color:var(--text-dim); }
+.result-place.p1 { color:var(--neon-yellow); text-shadow:0 0 8px var(--neon-yellow); }
+.result-place.p2 { color:#c0c0c0; }
+.result-place.p3 { color:#cd7f32; }
+.result-dot    { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.result-name   { flex:1; font-weight:800; font-size:13px; }
+.result-stats  { text-align:right; }
+.result-wpm    { font-family:var(--font-pixel); font-size:10px; color:var(--neon-cyan); }
+.result-coins  { font-size:10px; color:var(--neon-yellow); font-weight:700; margin-top:2px; }
+
+.results-actions { display:flex; gap:10px; margin-top:16px; }
+.btn-rematch { flex:1; background:linear-gradient(135deg,#7b2fff,#4a00e0); border:none; border-radius:4px; padding:11px; font-size:12px; font-family:var(--font-body); font-weight:800; color:#fff; cursor:pointer; transition:all 0.15s; }
+.btn-rematch:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(123,47,255,0.4); }
+.btn-lobby   { flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:4px; padding:11px; font-size:12px; font-family:var(--font-body); font-weight:800; color:var(--text-dim); cursor:pointer; transition:all 0.15s; }
+.btn-lobby:hover { background:rgba(255,255,255,0.1); color:#fff; }
+
+/* ── Post-race analysis — typeracer.com style ── */
+.analysis-section {
+  margin-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding-top: 18px;
+}
+.analysis-section-title {
+  font-family: var(--font-pixel); font-size: 8px;
+  color: var(--text-dim); letter-spacing: 0.15em;
+  text-transform: uppercase; margin-bottom: 14px;
+}
+
+/* Big stat pills — WPM / Accuracy / Time */
+.stat-pills {
+  display: flex; gap: 10px; margin-bottom: 16px;
+}
+.stat-pill-card {
+  flex: 1; text-align: center;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px; padding: 10px 8px;
+}
+.stat-pill-val {
+  font-family: var(--font-pixel);
+  font-size: 20px; line-height: 1;
+  margin-bottom: 5px;
+}
+.stat-pill-val.wpm-col  { color: var(--neon-cyan);   text-shadow: 0 0 12px rgba(0,245,255,0.5); }
+.stat-pill-val.acc-col  { color: var(--neon-green);  text-shadow: 0 0 12px rgba(57,255,20,0.4); }
+.stat-pill-val.time-col { color: var(--neon-pink);   text-shadow: 0 0 12px rgba(255,45,120,0.4); }
+.stat-pill-val.err-col  { color: var(--neon-yellow); text-shadow: 0 0 12px rgba(255,229,102,0.4); }
+.stat-pill-label {
+  font-size: 9px; font-family: var(--font-pixel);
+  color: var(--text-dim); letter-spacing: 0.1em;
+}
+
+/* WPM line graph */
+.wpm-graph-wrap {
+  width: 100%; height: 130px;
+  margin-bottom: 16px; position: relative;
+}
+.wpm-graph-wrap canvas {
+  width: 100% !important; height: 100% !important;
+  display: block;
+}
+
+/* AI coaching text */
+.ai-coaching {
+  background: rgba(0,245,255,0.04);
+  border: 1px solid rgba(0,245,255,0.12);
+  border-left: 3px solid var(--neon-cyan);
+  border-radius: 0 6px 6px 0;
+  padding: 12px 14px;
+}
+.ai-coaching-label {
+  font-size: 8px; font-family: var(--font-pixel);
+  color: var(--neon-cyan); letter-spacing: 0.12em;
+  text-transform: uppercase; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.ai-coaching-text {
+  font-size: 13px; line-height: 1.75;
+  color: var(--text-main); font-family: var(--font-body);
+}
+.ai-coaching-loading {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--text-dim); font-size: 12px;
+  font-family: var(--font-body);
+}
+.ai-coaching-spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(0,245,255,0.15);
+  border-top-color: var(--neon-cyan);
+  animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════
+   TOP HUD, TOAST, MISC
+═══════════════════════════════════════════════════ */
+#race-hud      { position:fixed; top:16px; right:16px; z-index:12; display:none; align-items:center; gap:10px; pointer-events:none; }
+#race-hud.show { display:flex; }
+.hud-pill  { background:var(--ui-bg); border:1px solid var(--ui-border); border-radius:20px; padding:5px 14px; font-family:var(--font-pixel); font-size:8px; letter-spacing:0.1em; backdrop-filter:blur(8px); }
+.hud-timer { color:var(--neon-pink);  text-shadow:0 0 8px var(--neon-pink); }
+.hud-wpm   { color:var(--neon-cyan);  text-shadow:0 0 8px var(--neon-cyan); }
+.hud-acc   { color:var(--neon-green); text-shadow:0 0 8px var(--neon-green); }
+
+#toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:100; background:rgba(10,14,40,0.95); border:1px solid var(--ui-border); border-radius:4px; padding:10px 20px; font-size:12px; font-weight:700; color:var(--neon-cyan); backdrop-filter:blur(12px); box-shadow:0 4px 20px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.3s; }
+#toast.show { opacity:1; }
+
+.neon-line { height:1px; background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent); margin:16px 0; opacity:0.3; }
+.px-small  { font-family:var(--font-pixel); font-size:7px; letter-spacing:0.1em; color:var(--text-dim); }
+
+/* ── Race Modifiers ── */
+.modifier-section { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.modifier-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.modifier-card {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px; padding: 8px 10px;
+  cursor: pointer; transition: all 0.15s;
+  position: relative; overflow: hidden;
+  text-align: left;
+}
+.modifier-card:hover:not(:disabled) { border-color: rgba(255,255,255,0.2); transform: translateY(-1px); }
+.modifier-card.active {
+  border-color: var(--neon-green);
+  background: rgba(57,255,20,0.08);
+  box-shadow: 0 0 12px rgba(57,255,20,0.15);
+}
+.modifier-card.active::after {
+  content: '✓ ACTIVE';
+  position: absolute; top: 4px; right: 6px;
+  font-size: 6px; font-family: var(--font-pixel);
+  color: var(--neon-green); letter-spacing: 0.1em;
+}
+.modifier-card:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.mod-icon  { font-size: 18px; line-height: 1; margin-bottom: 4px; display: block; }
+.mod-name  { font-size: 8px; font-family: var(--font-pixel); color: #fff; margin-bottom: 3px; display: block; }
+.mod-desc  { font-size: 10px; color: var(--text-dim); display: block; margin-bottom: 5px; line-height: 1.4; }
+.mod-cost  {
+  font-size: 8px; font-family: var(--font-pixel);
+  color: var(--neon-yellow); display: inline-block;
+  background: rgba(255,229,102,0.1); border-radius: 3px; padding: 1px 5px;
+}
+.mod-cost.free { color: var(--neon-green); background: rgba(57,255,20,0.1); }
+
+/* Active modifier HUD badges during race */
+.mod-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(57,255,20,0.15); border: 1px solid rgba(57,255,20,0.3);
+  border-radius: 10px; padding: 3px 8px;
+  font-size: 7px; font-family: var(--font-pixel);
+  color: var(--neon-green); animation: badgePulse 2s ease-in-out infinite;
+}
+@keyframes badgePulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+.confetti { position:fixed; z-index:25; pointer-events:none; border-radius:1px; animation:confettiFall var(--d,2s) ease-in var(--del,0s) forwards; }
+@keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+
+.flash { position:fixed; inset:0; z-index:50; background:rgba(255,255,255,0.15); pointer-events:none; opacity:0; animation:flashOut 0.4s ease-out forwards; }
+@keyframes flashOut { from{opacity:1} to{opacity:0} }
+
+/* ═══════════════════════════════════════════════════
+   LOBBY EXTRA BUTTONS
+═══════════════════════════════════════════════════ */
+.lobby-extras { display:flex; gap:8px; margin-top:10px; }
+.btn-secondary {
+  flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12);
+  border-radius:3px; padding:10px 8px; font-size:11px; font-family:var(--font-body);
+  font-weight:800; color:var(--text-dim); cursor:pointer; transition:all 0.15s; text-align:center;
+}
+.btn-secondary:hover { background:rgba(255,255,255,0.1); color:#fff; }
+
+/* ═══════════════════════════════════════════════════
+   SCREEN — LEADERBOARD
+═══════════════════════════════════════════════════ */
+#screen-leaderboard { z-index:10; align-items:flex-start; justify-content:flex-start; padding:20px; pointer-events:none; }
+.lb-panel {
+  pointer-events:all; background:var(--ui-panel); border:1px solid var(--ui-border);
+  border-radius:4px; padding:24px; width:400px; max-width:94vw;
+  backdrop-filter:blur(12px);
+  box-shadow:0 0 40px rgba(0,245,255,0.08), 0 20px 60px rgba(0,0,0,0.5);
+  position:relative; overflow:hidden;
+}
+.lb-panel::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);
+  z-index:0;
+}
+.lb-panel > * { position:relative; z-index:1; }
+.lb-title {
+  font-family:var(--font-pixel); font-size:9px; color:var(--neon-yellow);
+  text-shadow:0 0 10px var(--neon-yellow); letter-spacing:0.2em;
+  margin-bottom:18px; text-align:center;
+}
+.lb-row {
+  display:flex; align-items:center; gap:12px;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07);
+  border-radius:4px; padding:9px 12px; margin-bottom:6px;
+}
+.lb-row.lb-gold   { border-color:rgba(255,229,102,0.45); background:rgba(255,229,102,0.06); }
+.lb-row.lb-silver { border-color:rgba(192,192,192,0.3); }
+.lb-row.lb-bronze { border-color:rgba(205,127,50,0.3); }
+.lb-rank  { font-family:var(--font-pixel); font-size:11px; width:26px; text-align:center; color:var(--text-dim); }
+.lb-name  { flex:1; font-weight:800; font-size:13px; }
+.lb-right { text-align:right; }
+.lb-wpm   { font-family:var(--font-pixel); font-size:11px; color:var(--neon-cyan); }
+.lb-acc   { font-size:10px; color:var(--neon-green); margin-top:2px; }
+.lb-date  { font-size:9px; color:var(--text-dim); margin-top:2px; }
+.lb-empty { text-align:center; color:var(--text-dim); font-size:12px; padding:24px 0; line-height:1.8; }
+.lb-spinner-wrap { text-align:center; padding:24px 0; color:var(--text-dim); font-size:12px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+.lb-spinner { width:18px; height:18px; border-radius:50%; border:2px solid rgba(0,245,255,0.15); border-top-color:var(--neon-cyan); animation:spin 0.7s linear infinite; }
+.btn-lb-back {
+  width:100%; margin-top:14px; background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.12); border-radius:3px; padding:11px;
+  font-size:12px; font-family:var(--font-body); font-weight:800;
+  color:var(--text-dim); cursor:pointer; transition:all 0.15s;
+}
+.btn-lb-back:hover { background:rgba(255,255,255,0.1); color:#fff; }
+
+/* ═══════════════════════════════════════════════════
+   TYPING TEST — results overlay
+═══════════════════════════════════════════════════ */
+#screen-typing-test-results {
+  z-index:30; align-items:center; justify-content:center; padding:20px;
+  overflow-y:auto;
+  /* uses the same .screen base class — shown via showScreen() */
+}
+.tt-panel {
+  background:var(--ui-panel); border:1px solid var(--ui-border);
+  border-radius:10px; padding:26px 28px 28px; width:520px; max-width:96vw;
+  backdrop-filter:blur(16px);
+  box-shadow:0 0 60px rgba(0,245,255,0.08), 0 30px 80px rgba(0,0,0,0.6);
+  position:relative; overflow:hidden;
+  animation:panelIn 0.4s cubic-bezier(0.34,1.3,0.64,1);
+}
+.tt-panel::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);
+  z-index:0;
+}
+.tt-panel > * { position:relative; z-index:1; }
+.tt-title {
+  font-family:var(--font-pixel); font-size:9px; letter-spacing:0.2em;
+  color:var(--neon-cyan); text-shadow:0 0 10px var(--neon-cyan);
+  text-align:center; margin-bottom:18px;
+}
+.tt-pills { display:flex; gap:10px; margin-bottom:16px; }
+.tt-pill {
+  flex:1; text-align:center; background:rgba(0,0,0,0.3);
+  border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:12px 8px;
+}
+.tt-pill-val   { font-family:var(--font-pixel); font-size:22px; line-height:1; margin-bottom:6px; }
+.tt-pill-label { font-size:9px; font-family:var(--font-pixel); color:var(--text-dim); letter-spacing:0.1em; }
+.tt-graph { width:100%; height:120px; margin-bottom:16px; }
+.tt-graph canvas { width:100%!important; height:100%!important; display:block; }
+.tt-coaching {
+  background:rgba(0,245,255,0.04); border:1px solid rgba(0,245,255,0.12);
+  border-left:3px solid var(--neon-cyan); border-radius:0 6px 6px 0; padding:12px 14px;
+  margin-bottom:16px;
+}
+.tt-coaching-label {
+  font-size:8px; font-family:var(--font-pixel); color:var(--neon-cyan);
+  letter-spacing:0.12em; text-transform:uppercase; margin-bottom:8px;
+  display:flex; align-items:center; gap:6px;
+}
+.tt-coaching-body { font-size:13px; line-height:1.75; color:var(--text-main); }
+.tt-coaching-loading { display:flex; align-items:center; gap:10px; color:var(--text-dim); font-size:12px; }
+.tt-coaching-spinner { width:14px; height:14px; border-radius:50%; border:2px solid rgba(0,245,255,0.15); border-top-color:var(--neon-cyan); animation:spin 0.7s linear infinite; flex-shrink:0; }
+.tt-actions { display:flex; gap:10px; }
+.btn-tt-again {
+  flex:1; background:linear-gradient(135deg,#7b2fff,#4a00e0); border:none; border-radius:4px;
+  padding:11px; font-size:12px; font-family:var(--font-body); font-weight:800;
+  color:#fff; cursor:pointer; transition:all 0.15s;
+}
+.btn-tt-again:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(123,47,255,0.4); }
+.btn-tt-lobby {
+  flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+  border-radius:4px; padding:11px; font-size:12px; font-family:var(--font-body); font-weight:800;
+  color:var(--text-dim); cursor:pointer; transition:all 0.15s;
+}
+.btn-tt-lobby:hover { background:rgba(255,255,255,0.1); color:#fff; }
+</style>
+<link rel="stylesheet" href="/ui.css"/>
+</head>
+<body data-screen="screen-lobby">
+<header class="app-header">
+  <button class="brand" data-onclick="control-1" aria-label="Pixel Racer home"><span class="brand-mark" aria-hidden="true">▦</span>Pixel Racer</button>
+  <nav class="app-nav" aria-label="Main navigation">
+    <button class="nav-practice" data-screen="screen-tt-customize" data-onclick="control-2">Practice</button>
+    <button class="nav-leaderboard" data-screen="screen-leaderboard" data-onclick="control-3">Leaderboard</button>
+    <button id="motion-toggle" data-onclick="control-4" aria-pressed="false">Reduce motion</button>
+  </nav>
+</header>
+
+<!-- ═══════════════════════════════════════
+  PARALLAX BACKGROUND LAYERS
+  Files go in: public/assets/bg/
+    Sky.png       — full sky, static
+    Buildings.png — city skyline
+    River.png     — mid/river layer
+    Sidewalk.png  — near ground
+════════════════════════════════════════ -->
+<div class="parallax-bg" aria-hidden="true">
+  <div class="parallax-layer" id="pl-sky"></div>
+  <div class="parallax-layer" id="pl-buildings"></div>
+  <div class="parallax-layer" id="pl-river"></div>
+  <div class="parallax-layer" id="pl-sidewalk"></div>
+</div>
+
+
+
+
+<!-- Race track lanes -->
+
+
+<!-- Top HUD -->
+<div id="race-hud">
+  <div class="hud-pill hud-timer" id="hud-timer">00:00</div>
+  <div class="hud-pill hud-wpm"   id="hud-wpm">0 WPM</div>
+  <div class="hud-pill hud-acc"   id="hud-acc">100%</div>
+  <div id="hud-mods" style="display:flex;gap:5px;"></div>
+  <button type="button" class="hud-powerup hud-pu-empty" id="hud-pu-zap" data-onclick="control-5" aria-label="Use Zap power-up, F1">⚡ <span class="hud-pu-count" id="hud-pu-zap-count">0</span> <span class="hud-pu-key">[F1]</span></button>
+  <button type="button" class="hud-powerup hud-pu-empty" id="hud-pu-shield" data-onclick="control-6" aria-label="Use Shield power-up, F2">🛡️ <span class="hud-pu-count" id="hud-pu-shield-count">0</span> <span class="hud-pu-key">[F2]</span></button>
+  <button class="hud-mute" id="hud-mute-btn" data-onclick="control-7" title="Toggle sound" aria-label="Mute sound" aria-pressed="false">🔊</button>
+</div>
+
+<!-- ═══ SCREEN 1: LOBBY ═════════════════════════════ -->
+<div class="screen active" id="screen-lobby">
+  <div class="lobby-panel">
+    <div class="game-eyebrow">A little practice. A little competition.</div>
+    <h1 class="game-title">Find your rhythm.<br/>Race your friends.</h1>
+    <p class="game-sub">Turn a few spare minutes into faster fingers. Race together, or practice at your own pace.</p>
+    <label class="field-label" for="lobby-name">What should we call you?</label>
+    <input class="field-input" id="lobby-name" aria-describedby="lobby-error" type="text" placeholder="Enter your name" maxlength="20" autocomplete="off" data-oninput="control-8"/>
+    <button class="btn-primary" data-onclick="control-9">Create Room</button>
+    <div class="neon-line"></div>
+    <label class="divider" for="join-code">Have a room code?</label>
+    <div class="join-row">
+      <input class="field-input" id="join-code" inputmode="text" autocapitalize="characters" type="text" placeholder="ROOM CODE" maxlength="6" autocomplete="off" style="text-transform:uppercase"/>
+      <button class="btn-join" data-onclick="control-10">Join</button>
+    </div>
+    <div class="error-msg" id="lobby-error" role="alert"></div>
+    <div class="lobby-extras">
+      <button class="btn-secondary" data-onclick="control-11">⌨️ Typing Test</button>
+      <button class="btn-secondary" data-onclick="control-12">🏆 Leaderboard</button>
+    </div>
+    <div class="volume-row">
+      <button class="volume-icon" data-onclick="control-13" id="vol-icon" aria-label="Mute sound" aria-pressed="false">🔊</button>
+      <input class="volume-slider" id="vol-slider" aria-label="Sound volume" type="range" min="0" max="100" value="70" data-oninput="control-14"/>
+      <span class="volume-label" id="vol-label">70</span>
+    </div>
+  </div>
+  <aside class="lobby-showcase" aria-labelledby="showcase-title">
+    <p class="showcase-kicker">Small races. Real progress.</p>
+    <h2 class="showcase-title" id="showcase-title">Your next personal best<br/>starts with one race.</h2>
+    <div class="scene-preview" aria-hidden="true">
+      <div class="scene-layer scene-sky"></div><div class="scene-layer scene-city"></div>
+      <div class="scene-layer scene-river"></div><div class="scene-layer scene-ground"></div>
+      <div class="scene-runner"></div><div class="scene-runner second"></div>
+      <span class="scene-badge">A friendly race to the finish</span>
+    </div>
+    <div class="showcase-features">
+      <div><strong>Bring your friends</strong><p>One room code. Up to six racers.</p></div>
+      <div><strong>Find your pace</strong><p>Solo practice with speed and accuracy stats.</p></div>
+      <div><strong>Make it yours</strong><p>Pick a runner and a place to race.</p></div>
+    </div>
+    <p class="showcase-footer">No account needed. Just a name and a keyboard.</p>
+  </aside>
+</div>
+
+<!-- ═══ SCREEN: LEADERBOARD ══════════════════════════ -->
+<div class="screen" id="screen-leaderboard">
+  <div class="lb-panel">
+    <h2 class="lb-title">🏆 &nbsp;ALL-TIME TOP 10&nbsp; 🏆</h2>
+    <div id="lb-list">
+      <div class="lb-spinner-wrap"><div class="lb-spinner"></div><span>Loading…</span></div>
+    </div>
+    <button class="btn-lb-back" data-onclick="control-15">← Back to Lobby</button>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: TYPING TEST CUSTOMIZE ════════════════ -->
+<div class="screen" id="screen-tt-customize" aria-label="Set up solo practice">
+
+  <!-- LEFT PANEL: mirrors the waiting-panel style -->
+  <div class="waiting-panel">
+    <h2 class="panel-title">Your practice session</h2><div class="game-eyebrow">Solo Typing Test</div>
+    <div class="room-code-display" style="font-size:13px;letter-spacing:0.1em;margin-bottom:6px">⌨️ Solo Mode</div>
+    <div class="neon-line"></div>
+
+    <!-- Quote category -->
+    <div class="category-section">
+      <div class="category-label">Quote Category</div>
+      <div class="category-grid">
+        <button class="cat-btn active" data-ttcat="random"     data-onclick="control-16">🎲 Random</button>
+        <button class="cat-btn"       data-ttcat="literature"  data-onclick="control-17">📚 Books</button>
+        <button class="cat-btn"       data-ttcat="film"        data-onclick="control-18">🎬 Film</button>
+        <button class="cat-btn"       data-ttcat="speech"      data-onclick="control-19">🎤 Speech</button>
+        <button class="cat-btn"       data-ttcat="philosophy"  data-onclick="control-20">🧠 Philos.</button>
+        <button class="cat-btn"       data-ttcat="science"     data-onclick="control-21">🔭 Science</button>
+        <button class="cat-btn"       data-ttcat="game"        data-onclick="control-22">🎮 Gaming</button>
+      </div>
+      <button class="ai-toggle-row" id="tt-ai-toggle" data-onclick="control-23" role="switch" aria-checked="false" aria-label="AI-generated passages">
+        <div class="ai-icon">✨</div>
+        <div class="ai-text">
+          <div class="ai-text-title">AI Generated</div>
+          <div class="ai-text-sub">Generate a unique passage each race</div>
+        </div>
+        <div class="ai-check" id="tt-ai-check"></div></button>
+    </div>
+
+    <!-- Player row (just the local player) -->
+    <div class="field-label" style="margin-bottom:8px">Player</div>
+    <ul class="players-list" id="tt-player-row"></ul>
+
+    <button class="btn-ready" data-onclick="control-24">Start Typing Test</button>
+    <div class="waiting-hint px-small">All cosmetics are free in solo mode 🔓</div>
+    <button class="btn-lb-back" style="margin-top:12px" data-onclick="control-25">← Back to Lobby</button>
+  </div>
+
+  <!-- RIGHT PANEL: mirrors the customize-panel style, all items unlocked -->
+  <div class="customize-panel">
+    <h2 class="customize-panel-title">🎨 Customise</h2>
+    <div class="coin-balance-bar">
+      <span class="coin-balance-label">🪙 Your Coins</span>
+      <span class="coin-balance-val" id="tt-coin-display">0</span>
+    </div>
+    <div class="customize-label">Background</div>
+    <div class="theme-grid" id="tt-theme-grid"></div>
+    <div class="customize-label">Sprite</div>
+    <div class="sprite-grid" id="tt-sprite-grid"></div>
+  </div>
+
+</div>
+
+<div class="screen" id="screen-typing-test-results">
+  <div class="tt-panel">
+    <h2 class="tt-title">⌨️ &nbsp;TYPING TEST COMPLETE&nbsp; ⌨️</h2>
+    <div class="tt-pills">
+      <div class="tt-pill">
+        <div class="tt-pill-val wpm-col" id="tt-wpm">—</div>
+        <div class="tt-pill-label">WPM</div>
+      </div>
+      <div class="tt-pill">
+        <div class="tt-pill-val acc-col" id="tt-acc">—</div>
+        <div class="tt-pill-label">Accuracy</div>
+      </div>
+      <div class="tt-pill">
+        <div class="tt-pill-val time-col" id="tt-time">—</div>
+        <div class="tt-pill-label">Time</div>
+      </div>
+      <div class="tt-pill">
+        <div class="tt-pill-val err-col" id="tt-err">—</div>
+        <div class="tt-pill-label">Errors</div>
+      </div>
+    </div>
+    <div class="tt-graph"><canvas id="tt-chart"></canvas></div>
+    <div class="tt-coaching">
+      <div class="tt-coaching-label"><span>✨</span><span>AI Coaching</span></div>
+      <div class="tt-coaching-loading" id="tt-coaching-loading">
+        <div class="tt-coaching-spinner"></div><span>Analysing your session…</span>
+      </div>
+      <div class="tt-coaching-body" id="tt-coaching-text" style="display:none"></div>
+    </div>
+    <div class="tt-actions">
+      <button class="btn-tt-again" data-onclick="control-26">Try Again</button>
+      <button class="btn-tt-lobby" data-onclick="control-27">← Lobby</button>
+    </div>
+  </div>
+</div>
+<div class="screen" id="screen-waiting">
+
+  <!-- LEFT PANEL: room info, category, players, ready -->
+  <div class="waiting-panel">
+    <h2 class="panel-title">Get ready to race</h2><div class="room-code-label">Your room code</div>
+    <div class="room-code-display" id="w-code">——————</div>
+    <button class="room-link" data-onclick="control-28" aria-label="Copy room invitation link"><span id="w-link-text"></span> 📋</button>
+    <div class="neon-line"></div>
+
+    <!-- Category picker — visible to host only -->
+    <div id="w-category-host" class="category-section" style="display:none">
+      <div class="category-label">Quote Category</div>
+      <div class="category-grid">
+        <button class="cat-btn active" data-cat="random"      data-onclick="control-29">🎲 Random</button>
+        <button class="cat-btn"        data-cat="literature"  data-onclick="control-30">📚 Books</button>
+        <button class="cat-btn"        data-cat="film"        data-onclick="control-31">🎬 Film</button>
+        <button class="cat-btn"        data-cat="speech"      data-onclick="control-32">🎤 Speech</button>
+        <button class="cat-btn"        data-cat="philosophy"  data-onclick="control-33">🧠 Philosophy</button>
+        <button class="cat-btn"        data-cat="science"     data-onclick="control-34">🔭 Science</button>
+        <button class="cat-btn"        data-cat="game"        data-onclick="control-35">🎮 Gaming</button>
+      </div>
+      <button class="ai-toggle-row" id="ai-toggle" data-onclick="control-36" role="switch" aria-checked="false" aria-label="AI-generated passages">
+        <div class="ai-icon">✨</div>
+        <div class="ai-text">
+          <div class="ai-text-title">AI Generated</div>
+          <div class="ai-text-sub">Generate a unique passage each race</div>
+        </div>
+        <div class="ai-check" id="ai-check"></div></button>
+    </div>
+
+    <!-- Category display — visible to guests only -->
+    <div id="w-category-guest" class="category-display" style="display:none">
+      Category: <strong id="w-cat-display">Random</strong>
+    </div>
+
+    <!-- Race Modifiers — any player can purchase, consumed on race start -->
+    <div id="w-modifiers-host" class="modifier-section">
+      <div class="category-label" style="margin-bottom:8px">⚡ Race Modifiers</div>
+      <div class="modifier-grid" id="modifier-grid"></div>
+    </div>
+
+    <div class="field-label" style="margin-bottom:8px">Players</div>
+    <ul class="players-list" id="w-players"></ul>
+    <button class="btn-ready" id="btn-ready" data-onclick="control-37">Ready Up</button>
+    <div class="waiting-hint px-small">Waiting for players to ready up…</div>
+    <button class="btn-lb-back" style="margin-top:12px" data-onclick="control-38">← Back to Lobby</button>
+  </div>
+
+  <!-- RIGHT PANEL: customization (backgrounds + sprites + coins) -->
+  <div class="customize-panel">
+    <h2 class="customize-panel-title">🎨 Customise</h2>
+    <div class="coin-balance-bar">
+      <span class="coin-balance-label">🪙 Your Coins</span>
+      <span class="coin-balance-val" id="coin-balance-display">0</span>
+    </div>
+    <div class="customize-label">Background</div>
+    <div class="theme-grid" id="theme-grid"></div>
+    <div class="customize-label">Sprite</div>
+    <div class="sprite-grid" id="sprite-grid"></div>
+    <div class="powerup-shop" id="powerup-shop">
+      <div class="powerup-shop-title">⚡ Power-Ups</div>
+      <div class="powerup-grid">
+        <button class="powerup-card zap-card" id="pu-buy-zap" data-onclick="control-39">
+          <span class="powerup-count" id="pu-count-zap">0</span>
+          <span class="powerup-icon">⚡</span>
+          <span class="powerup-name">Zap</span>
+          <span class="powerup-desc">Freeze the player ahead for 1.5s</span>
+          <span class="powerup-key">F1 to fire</span>
+          <span class="powerup-cost">120 🪙</span>
+        </button>
+        <button class="powerup-card shield-card" id="pu-buy-shield" data-onclick="control-40">
+          <span class="powerup-count" id="pu-count-shield">0</span>
+          <span class="powerup-icon">🛡️</span>
+          <span class="powerup-name">Shield</span>
+          <span class="powerup-desc">Block next Zap. Active 3s</span>
+          <span class="powerup-key">F2 to activate</span>
+          <span class="powerup-cost">80 🪙</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ SCREEN 3: COUNTDOWN ══════════════════════════ -->
+<div class="screen" id="screen-countdown">
+  <h2 class="sr-only">Race countdown</h2><div class="countdown-number" id="countdown-num" aria-live="polite" aria-atomic="true">3</div>
+  <div class="countdown-sub px-small">GET READY TO TYPE</div>
+</div>
+
+<!-- ═══ SCREEN 4: RACE ═══════════════════════════════ -->
+<div class="screen" id="screen-race">
+  <div class="race-ui">
+    <div class="race-heading"><h2>Ready, set, type.</h2><span>One word at a time. You’ve got this.</span></div>
+    <div class="race-ui-inner">
+      <div>
+        <div class="prompt-area" id="race-prompt">Loading…</div>
+        <div class="prompt-source" id="prompt-source"></div>
+        <label class="sr-only" for="typing-input">Type the highlighted word</label>
+        <span id="current-word" class="sr-only" aria-live="polite" aria-atomic="true"></span>
+        <input class="typing-input" id="typing-input" aria-describedby="typing-hint current-word" aria-invalid="false" autocapitalize="off" autocorrect="off"
+          type="text" autocomplete="off" spellcheck="false"
+          placeholder="Type the highlighted word…" disabled data-oninput="control-41"/>
+        <p class="typing-hint" id="typing-hint">Press space after each word. Correct any underlined mistakes to continue.</p>
+        <p class="typing-error" id="typing-error" hidden>Check your spelling against the highlighted word.</p>
+        <div class="race-actions">
+          <button id="btn-give-up" type="button" data-onclick="control-42">Give Up</button>
+          <button type="button" data-onclick="control-43">Leave Match</button>
+          <span id="race-remaining" role="timer"></span>
+        </div>
+      </div>
+      <div class="stats-panel">
+        <div class="speed-arc-wrap">
+          <svg width="76" height="46" viewBox="0 0 80 48" aria-hidden="true">
+            <path d="M4 44 A 36 36 0 0 1 76 44" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7" stroke-linecap="round"/>
+            <path id="speed-fill" d="M4 44 A 36 36 0 0 1 76 44" fill="none" stroke="#00f5ff" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 113"/>
+            <text id="speed-num" x="40" y="36" text-anchor="middle" font-family="Nunito, sans-serif" font-size="16" fill="#00f5ff">0</text>
+          </svg>
+          <div class="speed-arc-label">WPM</div>
+        </div>
+        <div class="stat-card"><div class="stat-label">Time</div><div class="stat-value time-val" id="stat-time">0.0s</div></div>
+        <div class="stat-card"><div class="stat-label">Coins</div><div class="stat-value coin-val" id="stat-coins">0</div></div>
+        <div class="stat-card"><div class="stat-label">Place</div><div class="stat-value place-val" id="stat-place">—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="race-track" aria-hidden="true" style="display:none;"></div>
+<div id="customize-runner" aria-hidden="true" hidden>
+  <span class="customize-runner-label">Your runner</span>
+  <div class="customize-runner-avatar"></div>
+</div>
+<div class="asset-credit">
+  <span id="background-credit" hidden>
+  <a href="https://opengameart.org/content/cyberpunk-street-environment" target="_blank" rel="noopener noreferrer">Neon Street by Luis Zuno</a>
+  <span aria-hidden="true"> · </span><a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener noreferrer">CC BY 3.0</a>
+  <span aria-hidden="true"> · </span></span>
+  <a href="/artwork-credits.html" target="_blank" rel="noopener noreferrer">Artwork credits</a>
+</div>
+
+<!-- ═══ SCREEN 5: RESULTS ════════════════════════════ -->
+<div id="connection-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="connection-title">
+  <div class="connection-card">
+    <h2 id="connection-title">Connection lost</h2>
+    <p id="connection-message">Reconnecting automatically. Your race clock keeps running.</p>
+    <button type="button" data-onclick="control-44">Retry Connection</button>
+    <button type="button" data-onclick="control-45">Return to Lobby</button>
+  </div>
+</div>
+<div class="screen" id="screen-results">
+  <div class="results-panel">
+    <h2 class="results-title">🏁 &nbsp;RACE RESULTS&nbsp; 🏁</h2>
+
+    <!-- Leaderboard -->
+    <div id="results-list"></div>
+
+    <!-- Action buttons -->
+    <div class="results-actions">
+      <button class="btn-rematch" id="btn-rematch" data-onclick="control-46" style="display:none">Race Again</button>
+      <button class="btn-lobby" data-onclick="control-47">Back to Lobby</button>
+    </div>
+    <div id="rematch-votes" style="display:none; text-align:center; font-size:11px; color:var(--text-dim); margin-top:8px; font-family:var(--font-pixel); letter-spacing:0.05em;"></div>
+
+    <!-- Post-race analysis — typeracer.com style, always visible -->
+    <div class="analysis-section" id="analysis-section" style="display:none">
+      <div class="analysis-section-title">Your Race</div>
+
+      <!-- Big stat pills -->
+      <div class="stat-pills">
+        <div class="stat-pill-card">
+          <div class="stat-pill-val wpm-col"  id="an-wpm">—</div>
+          <div class="stat-pill-label">WPM</div>
+        </div>
+        <div class="stat-pill-card">
+          <div class="stat-pill-val acc-col"  id="an-acc">—</div>
+          <div class="stat-pill-label">Accuracy</div>
+        </div>
+        <div class="stat-pill-card">
+          <div class="stat-pill-val time-col" id="an-time">—</div>
+          <div class="stat-pill-label">Time</div>
+        </div>
+        <div class="stat-pill-card">
+          <div class="stat-pill-val err-col"  id="an-err">—</div>
+          <div class="stat-pill-label">Errors</div>
+        </div>
+      </div>
+
+      <!-- Race history -->
+      <div class="race-history" id="race-history" style="display:none">
+        <div class="race-history-title">Last 5 Races</div>
+        <div class="race-history-bars" id="race-history-bars"></div>
+        <div class="race-history-avg">Session avg: <span id="race-history-avg">—</span> WPM</div>
+      </div>
+
+      <!-- WPM line graph -->
+      <div class="wpm-graph-wrap">
+        <canvas id="wpm-chart"></canvas>
+      </div>
+
+      <!-- AI coaching -->
+      <div class="ai-coaching">
+        <div class="ai-coaching-label">
+          <span>✨</span><span>AI Coaching</span>
+        </div>
+        <div class="ai-coaching-loading" id="coaching-loading">
+          <div class="ai-coaching-spinner"></div>
+          <span>Analysing your race…</span>
+        </div>
+        <div class="ai-coaching-text" id="coaching-text" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<script src="/game.js"></script>
+<script src="/ui-events.js"></script>
+</body>
+</html>

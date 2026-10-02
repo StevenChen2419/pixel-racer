@@ -1,0 +1,234 @@
+{
+  "verifiedOn": "2026-09-30",
+  "method": "Exact SHA-256 PNG byte matches. Background archive also identified through creator preview pixel comparison; see artwork-license-audit.md.",
+  "archives": [
+    {
+      "name": "Free.rar",
+      "sha256": "17F70D8060FADCF1BA42D168B67073C944FB43D7036CD4CB8507DDDCEE49365E",
+      "provenance": "Existing local download; identified using creator listing and matching decoded Jungle preview"
+    },
+    {
+      "name": "pixel-art-tiny-hero-sprites.zip",
+      "sha256": "72675B3AB3246D6C37456346E24E2BBBF97842215ACBB8C6DCBA82B60DBAC8BB",
+      "url": "https://opengameart.org/sites/default/files/pixel-art-tiny-hero-sprites.zip"
+    }
+  ],
+  "assets": [
+    {
+      "path": "public/assets/bg/city/Buildings.png",
+      "sha256": "A2F92A6EE6DD09A0E776A3535A0889E6502C58E4377FE8124A55DB38896DC116",
+      "originalPath": "Free/City_Clean/2.Buildings.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/city/River.png",
+      "sha256": "F939B50B0FE4148C39EFC4C5EC66F5FEEFA8AFAAED5C544F3DF871DFDEC5E33A",
+      "originalPath": "Free/City_Clean/3.River.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/city/Sidewalk.png",
+      "sha256": "F92C4558146FFD3589EF3315A33086F82FB20AA0BAE676FC8F2035B4863BFFC8",
+      "originalPath": "Free/City_Clean/4.Sidewalk.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/city/Sky.png",
+      "sha256": "8CD6C43700DCAD3C591EDB86ADBCAFA09CA0D8A86313D8D7E70B18E64B286F2F",
+      "originalPath": "Free/City_Clean/1.Sky.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/city_dirty/1.Sky2.png",
+      "sha256": "8CD6C43700DCAD3C591EDB86ADBCAFA09CA0D8A86313D8D7E70B18E64B286F2F",
+      "originalPath": "Free/City_Dirty/1.Sky2.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/city_dirty/2.Buildings.png",
+      "sha256": "A2F92A6EE6DD09A0E776A3535A0889E6502C58E4377FE8124A55DB38896DC116",
+      "originalPath": "Free/City_Dirty/2.Buildings.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/city_dirty/3.Wall.png",
+      "sha256": "154CE06D8756F7521AB96B2EC064D0ED2992BDB4DE88FD22A7BC32AE6866EE60",
+      "originalPath": "Free/City_Dirty/3.Wall.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/city_dirty/4.Sidewalk.png",
+      "sha256": "29D2DBB341A4A8415B92A9354605EB64E6217C1E9CFA566248F2D3CA45DD1593",
+      "originalPath": "Free/City_Dirty/4.Sidewalk.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/desert/1.Sky.png",
+      "sha256": "16789BC976705B220494DF0A44B1411459DDBE24EFA63C6F6A60C7EDC639F581",
+      "originalPath": "Free/Desert/1.Sky.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/desert/2.Clouds.png",
+      "sha256": "4894045D8710E345CDA4DF80DA44D23216BC8708D0989E269FB1A8D71585890B",
+      "originalPath": "Free/Desert/2.Clouds.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/desert/3.Mountains.png",
+      "sha256": "491BE572946718D33EF34EF73A820A863AD8BF30C0F4C9ED51106E908DE8CAF5",
+      "originalPath": "Free/Desert/3.Mountains.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/desert/4.Dunes.png",
+      "sha256": "8F4F24AAA2B35AC967313391312E7A0B5D5FA04A75C12CCB7F6581B8D3E7496B",
+      "originalPath": "Free/Desert/4.Dunes.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/desert/5.Ground.png",
+      "sha256": "542438E2AC7E245DA7A251F809AB39BBCBB28FC84F2BA03A00FAC4198CD0604E",
+      "originalPath": "Free/Desert/5.Ground.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/jungle/1.Backround.png",
+      "sha256": "B7A53C1617DE9D863EF3938F7E6CEB969DC7A9A3FE97B792E72D8B3895CD1B42",
+      "originalPath": "Free/Jungle/1.Backround.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/jungle/2.Trees_back.png",
+      "sha256": "59232B0417B4BFCF71BE73A1D7A573A3441862FB3250D72EF5F8E74BB44529C8",
+      "originalPath": "Free/Jungle/2.Trees_back.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/jungle/3.Trees_front.png",
+      "sha256": "2A58532B26E8708CBF3D7C9399F90FE5F2481C4B3BB2FA028D62684CC16E3793",
+      "originalPath": "Free/Jungle/3.Trees_front.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/jungle/4.Ground.png",
+      "sha256": "A7DFB61FA126D995F840D3EBE3449875AB393ED8CB1DC90181FE86A8A94D9E4A",
+      "originalPath": "Free/Jungle/4.Ground.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/mountain/1.Sky_free.png",
+      "sha256": "DED1BBB0EFA87686A33E1685628375F39E2D5BD98FCD02F84AB9B598600FB425",
+      "originalPath": "Free/Mountain/1.Sky_free.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/mountain/2.Mountains.png",
+      "sha256": "A1B91D4F0AADF8FEAD098F8DFCA510D51B98CD25CF1CEE2B3C87A4D7DC354A1B",
+      "originalPath": "Free/Mountain/2.Mountains.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/mountain/3.Trees_back.png",
+      "sha256": "6BF6138BA00253052DF961CC7B39E22F22D7D001FD0239E30BEF923633A5EC6B",
+      "originalPath": "Free/Mountain/3.Trees_back.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/bg/mountain/4.Groundt.png",
+      "sha256": "CBB430800992024800EE8C1EE0836F56F61E5B00D637ABBCE39B2BA1336ACFC4",
+      "originalPath": "Free/Mountain/4.Groundt.png",
+      "creator": "The Pixel Nook",
+      "license": "CC-BY-4.0",
+      "source": "https://the-pixel-nook.itch.io/parallax-backgrounds-demo",
+      "archive": "Free.rar"
+    },
+    {
+      "path": "public/assets/sprites/Dude_Monster_Run_6.png",
+      "sha256": "CB7995EBCE2442994F6C48B4D05E68F225188792F75D8A2F61A8D664D0F8F94E",
+      "originalPath": "3 Dude_Monster/Dude_Monster_Run_6.png",
+      "creator": "CraftPix.net 2D Game Assets",
+      "license": "OGA-BY-3.0",
+      "source": "https://opengameart.org/content/tiny-hero-sprites-pixel-art",
+      "archive": "pixel-art-tiny-hero-sprites.zip"
+    },
+    {
+      "path": "public/assets/sprites/Owlet_Monster_Run_6.png",
+      "sha256": "FDEA327A324747A30982CAE5C24645A403BBBA2A783392729310A07FDE20E60A",
+      "originalPath": "2 Owlet_Monster/Owlet_Monster_Run_6.png",
+      "creator": "CraftPix.net 2D Game Assets",
+      "license": "OGA-BY-3.0",
+      "source": "https://opengameart.org/content/tiny-hero-sprites-pixel-art",
+      "archive": "pixel-art-tiny-hero-sprites.zip"
+    },
+    {
+      "path": "public/assets/sprites/Pink_Monster_Run.png",
+      "sha256": "C8A189FEAF85DE7F65D32CB2BD25B7878A71A4E7BACE164F73E1082A40FF33A7",
+      "originalPath": "1 Pink_Monster/Pink_Monster_Run_6.png",
+      "creator": "CraftPix.net 2D Game Assets",
+      "license": "OGA-BY-3.0",
+      "source": "https://opengameart.org/content/tiny-hero-sprites-pixel-art",
+      "archive": "pixel-art-tiny-hero-sprites.zip"
+    }
+  ]
+}

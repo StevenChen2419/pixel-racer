@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Environment variables — NEVER commit this
+.env
+.env.*
+!.env.example
+
+# Leaderboard data (generated at runtime)
+server/leaderboard.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
