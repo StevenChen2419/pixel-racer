@@ -4,6 +4,8 @@ A browser-based typing game with real-time multiplayer races, animated pixel art
 
 Built with vanilla JavaScript, Node.js, Express, and Socket.IO.
 
+Play the live game: [pixel-racer-c42x.onrender.com](https://pixel-racer-c42x.onrender.com)
+
 ![Pixel Racer desktop lobby](docs/screenshots/desktop.jpg)
 
 [Desktop race](docs/screenshots/desktop-race.jpg) · [Phone lobby](docs/screenshots/mobile.jpg) · [Phone race](docs/screenshots/mobile-race.jpg)
