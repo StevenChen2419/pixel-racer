@@ -52,7 +52,7 @@ Inline CSS remains allowed because the existing UI uses inline styles and dynami
 
 ## Production setup
 
-1. Use a maintained Node.js version (22 or newer is required for the test client's built-in WebSocket support).
+1. Use Node.js 22.23.4 or later within major 22, matching .node-version and CI. Verify node --version in the actual serving environment; a version file alone does not update an already running process.
 2. Terminate HTTPS at a trusted hosting service/reverse proxy. Set `NODE_ENV=production` and `ALLOWED_ORIGIN=https://your-domain.example`. Put secrets in the host's environment settings.
 3. Leave `TRUSTED_PROXIES` empty for direct access. Behind a proxy, list only its actual IPs/CIDRs, for example `127.0.0.1/32,::1/128` for a same-machine proxy. Restrict access to Node so requests arrive only through those proxies. The proxy must overwrite untrusted forwarded headers.
 4. Run `npm ci`, `npm test`, and `npm audit --omit=dev`. Keep the lockfile, artwork notices, and updated dependencies.

@@ -36,7 +36,7 @@ Built with vanilla JavaScript, Node.js, Express, and Socket.IO.
 
 ## Run locally
 
-Use Node.js 22 or newer and npm. Node.js 24 was used for local verification.
+Use Node.js 22.23.4 or later within major 22 and npm; .node-version pins 22.23.4, also used by CI and local security verification.
 
 ```sh
 npm ci
